@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
+
+import 'dart:io';
 
 void main() => runApp(FlutterKakaoTTSApp());
 
@@ -26,63 +29,49 @@ class HomePageState extends State<HomePage> {
   var apiKey = '8e7b1fb7e1f9611d3dd70d29f6b55eb3';
   var _textInputController = TextEditingController();
 
+  Future<String> getFilePathForSave(uniqueFileName) async {
+    String path = '';
+    Directory dir = await getApplicationDocumentsDirectory();
+    path = '${dir.path}/$uniqueFileName';
+    return path;
+  }
+
   Future<void> sendTextForSpeech() async {
     var text = _textInputController.text;
     _textInputController.clear();
+
     var dio = Dio();
 
-    try {
-      final response = await dio.post(
-        url,
-        data: '''
+    final response = await dio.post(
+      url,
+      options: Options(
+        headers: {
+          'Authorization': apiKey,
+        },
+        responseType: ResponseType.bytes,
+        contentType: 'application/xml',
+      ),
+      data: '''
         <speak>
         <voice name="MAN_DIALOG_BRIGHT">
         $text
         </voice>
         </speak>
         ''',
-        options: Options(
-          headers: {
-            'Authorization': apiKey,
-          },
-          contentType: 'application/xml',
-        ),
-      );
+    );
+    //재생
 
-      //재생
-      var player = AudioPlayer(mode: PlayerMode.MEDIA_PLAYER);
-      player.play(response.data);
-    } on DioError catch (error) {
-      showDialog(
-        context: context,
-        child: Container(
-          height: 500,
-          child: AlertDialog(
-            title: Text('전송 에러'),
-            content: SingleChildScrollView(
-              child: Text(
-                error.toString(),
-              ),
-            ),
-            actions: [
-              RaisedButton(
-                child: Text('확인'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    String saveFilePath = await getFilePathForSave('$text.mp3');
+    new File(saveFilePath).writeAsBytes(response.data);
+    var player = AudioPlayer(mode: PlayerMode.MEDIA_PLAYER);
+    player.play(saveFilePath);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('카카오 음성 합성'),
+        title: Text('음성 합성'),
       ),
       body: Center(
         child: Column(
